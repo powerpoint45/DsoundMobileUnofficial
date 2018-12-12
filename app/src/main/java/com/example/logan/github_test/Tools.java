@@ -1,7 +1,9 @@
 package com.example.logan.github_test;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ResolveInfo;
 import android.preference.PreferenceManager;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -10,6 +12,7 @@ import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.List;
 
+import afu.org.checkerframework.checker.nullness.qual.NonNull;
 import eu.bittrade.libs.steemj.base.models.AccountName;
 import eu.bittrade.libs.steemj.configuration.SteemJConfig;
 import eu.bittrade.libs.steemj.enums.PrivateKeyType;
@@ -20,11 +23,12 @@ import eu.bittrade.libs.steemj.enums.PrivateKeyType;
 class Tools {
     /**
      * @param c Android context
+     * @param cypher CYPHER_PASSWORD or CYPHER_SC_TOKEN
      * @return private key that was saved earlier
      */
-    private static String getUserPrivateKey(Context c){
+    static String getUserPrivateKey(Context c, String cypher){
         Encryption encryption = new Encryption(c);
-        return encryption.decryptString();
+        return encryption.decryptString(cypher);
     }
 
     /**
@@ -40,13 +44,14 @@ class Tools {
      * @param username to save
      * @param privateKey to save
      * @param c Android context
+     * @param cypher CYPHER_PASSWORD or CYPHER_SC_TOKEN
      */
-    static void saveUserCredentials(String username, String privateKey, Context c){
+    static void saveUserCredentials(String username, String privateKey, Context c, String cypher){
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(c);
         sharedPref.edit().putString("username", username).apply();
 
         Encryption encryption = new Encryption(c);
-        encryption.encryptString(privateKey);
+        encryption.encryptString(privateKey, cypher);
     }
 
     /**
@@ -79,8 +84,8 @@ class Tools {
      * @throws InvalidKeyException if login fails due to private key
      */
     static Account loginIfPossible(Context c) throws InvalidKeyException {
-        if (getAccountName(c)!=null && getUserPrivateKey(c)!=null){
-            return loginIfPossible(getAccountName(c),getUserPrivateKey(c),c);
+        if (getAccountName(c)!=null && getUserPrivateKey(c, Encryption.CYPHER_PASSWORD)!=null){
+            return loginIfPossible(getAccountName(c),getUserPrivateKey(c, Encryption.CYPHER_PASSWORD),c);
         }
         return null;
     }
@@ -91,6 +96,23 @@ class Tools {
      */
     static void forgetLogin(Context c){
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(c);
-        sharedPref.edit().remove("username").apply();
+        sharedPref.edit().remove("username")
+                .remove(Encryption.CYPHER_PASSWORD)
+                .remove(Encryption.CYPHER_SC_TOKEN).apply();
+    }
+
+
+    /**
+     * @param context android context
+     * @return true if Chrome Custom Tabs are available
+     */
+    static boolean isChromeCustomTabsSupported(@NonNull final Context context) {
+        final String SERVICE_ACTION = "android.support.customtabs.action.CustomTabsService";
+        final String CHROME_PACKAGE = "com.android.chrome";
+
+        Intent serviceIntent = new Intent(SERVICE_ACTION);
+        serviceIntent.setPackage(CHROME_PACKAGE);
+        List<ResolveInfo> resolveInfos = context.getPackageManager().queryIntentServices(serviceIntent, 0);
+        return !(resolveInfos == null || resolveInfos.isEmpty());
     }
 }

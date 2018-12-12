@@ -29,7 +29,7 @@ public class LoginActivity extends AppCompatActivity {
         try {
             Account account = Tools.loginIfPossible(username,password,this);
             if (account!=null) {
-                Tools.saveUserCredentials(username, password, this);
+                Tools.saveUserCredentials(username, password, this, Encryption.CYPHER_PASSWORD);
                 setResult(RESULT_OK);
                 finish();
                 Toast.makeText(this, R.string.login_succeeded, Toast.LENGTH_SHORT).show();

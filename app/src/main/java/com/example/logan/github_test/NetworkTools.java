@@ -130,12 +130,14 @@ class NetworkTools extends AppCompatActivity {
 
                     //get direct link to audio if provided by dsound. May load songs faster that standard IPFS gateway
                     try {
-                        JSONArray arr = jObj.getJSONArray("links");
-                        for (int i = 0; i < arr.length(); i++){
-                            if (arr.getString(i).contains("/ipfs/")){
-                                Log.d("ds", arr.getString(i));
-                                song.setDsoundSongURL(arr.getString(i));
-                                break;
+                        if (jObj.has("links")) {
+                            JSONArray arr = jObj.getJSONArray("links");
+                            for (int i = 0; i < arr.length(); i++) {
+                                if (arr.getString(i).contains("/ipfs/")) {
+                                    Log.d("ds", arr.getString(i));
+                                    song.setDsoundSongURL(arr.getString(i));
+                                    break;
+                                }
                             }
                         }
                     } catch (JSONException e) {

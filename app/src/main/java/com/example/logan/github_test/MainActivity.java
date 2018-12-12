@@ -2,8 +2,10 @@ package com.example.logan.github_test;
 
 import android.content.Intent;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.customtabs.CustomTabsIntent;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.PopupMenu;
@@ -19,10 +21,18 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.hapramp.steemconnect4j.SteemConnect;
+import com.hapramp.steemconnect4j.SteemConnectCallback;
+import com.hapramp.steemconnect4j.SteemConnectException;
+import com.hapramp.steemconnect4j.SteemConnectOptions;
 import com.makeramen.roundedimageview.RoundedTransformationBuilder;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Transformation;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -31,7 +41,6 @@ import java.util.TimerTask;
 
 import eu.bittrade.libs.steemj.SteemJ;
 import eu.bittrade.libs.steemj.exceptions.SteemCommunicationException;
-import eu.bittrade.libs.steemj.exceptions.SteemInvalidTransactionException;
 import eu.bittrade.libs.steemj.exceptions.SteemResponseException;
 
 public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuItemClickListener {
@@ -55,6 +64,8 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
     TextView songTitleText;
     Timer durationTimer;
 
+    SteemConnect steemConnect;
+
     //TAG_TRENDING, TAG_HOT, TAG_NEW, or TAG_FEED
     int currentTagSelected;
     Account loggedInAccount;
@@ -69,12 +80,17 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
 
         Log.d("ds","onCreate");
 
+        if (getIntent().getExtras()!=null)
+            onNewIntent(getIntent());
+
+
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
         initMainLayout();
         initRecyclerView();
         initButons();
         initSteemJClient();
+        initSteemConnect();
         initMusicBar();
         updateMusicBar();
 
@@ -88,7 +104,7 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
     public void topBarButtonClicked(View v){
         switch(v.getId()){
             case R.id.login:
-                startActivityForResult(new Intent(MainActivity.this, LoginActivity.class),REQUEST_LOGIN_CODE);
+                promptLogin();
                 break;
             case R.id.profile:
                 showAccountPopup(v);
@@ -149,39 +165,157 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
     }
 
 
+    SteemConnectCallback steemConnectCallback = new SteemConnectCallback() {
+        @Override
+        public void onResponse(String json) {
+            try {
+                final JSONObject accountObject = new JSONObject(json).getJSONObject("account");
+                String jsonMetaDataString = accountObject.getString("json_metadata");
+                String jsonFormattedString = jsonMetaDataString.replaceAll("\\\\", "");
+                final JSONObject profileObject = new JSONObject(jsonFormattedString).getJSONObject("profile");
+                Log.d("ds",profileObject.toString());
+            }
+            catch (JSONException e) {
+                Log.d("ds", "Error " + e.toString());
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onError(SteemConnectException e) {
+            e.printStackTrace();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "Something went wrong!", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    };
+
+    /**
+     * SteemConnect deals with credentials. SteemConnect can present a login prompt
+     * It allows for commenting and voting
+     */
+    private void initSteemConnect(){
+        final String accessToken = Tools.getUserPrivateKey(this, Encryption.CYPHER_SC_TOKEN);
+        if (accessToken!=null){
+            loggedInAccount = new Account();
+            loggedInAccount.setUserName(Tools.getAccountName(this));
+            Log.d("ds",accessToken);
+            initLoggedInUI();
+        }
+
+        SteemConnectOptions options = new SteemConnectOptions();
+        if (accessToken!=null)
+            options.setAccessToken(accessToken);
+        options.setApp("dsoundmobile");
+        options.setBaseUrl("https://steemconnect.com");
+        options.setCallback("dsound://main/");
+        options.setScope(new String[]{"comment", "vote"});
+
+
+        // build the SteemConnect object.
+        steemConnect = new SteemConnect(options);
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                steemConnect.me(steemConnectCallback);
+            }
+        }).start();
+
+    }
+
+
+    /**
+     * Open Login UI Prompt
+     */
+    private void promptLogin(){
+        String url = null;
+        try {
+            url = steemConnect.getLoginUrl(false);
+        } catch (SteemConnectException e) {
+            e.printStackTrace();
+        }
+
+        if (Tools.isChromeCustomTabsSupported(this)) {
+            CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
+            CustomTabsIntent customTabsIntent = builder.build();
+            customTabsIntent.launchUrl(this, Uri.parse(url));
+        }else {
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(browserIntent);
+        }
+
+
+        //startActivityForResult(new Intent(MainActivity.this, LoginActivity.class), REQUEST_LOGIN_CODE);
+    }
+
+
+    /**
+     * @param intent after SteemConnect login prompt get data from redirect URL
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+
+        if (intent.getDataString()!=null){
+            Uri uri = Uri.parse(intent.getDataString());
+            if (uri.getQueryParameter("access_token")!=null) {
+                String username = uri.getQueryParameter("username");
+                String token = uri.getQueryParameter("access_token");
+                Log.d("ds","D:"+intent.getDataString());
+                Tools.saveUserCredentials(username, token, this, Encryption.CYPHER_SC_TOKEN);
+            }
+        }
+    }
+
     /**
      * Initializes SteemJ client, logs user into app, and loads profile icon after login
      */
     private void initSteemJClient(){
+
         try {
             steemJClient = new SteemJ();
-            Log.d("ds","initSteemJClient");
-            try {
-                loggedInAccount = Tools.loginIfPossible(this);
-                if (loggedInAccount!=null) {
-                    loginButton.setVisibility(View.GONE);
-                    profileIcon.setVisibility(View.VISIBLE);
-
-                    Transformation transformation = new RoundedTransformationBuilder()
-                            .cornerRadiusDp(30)
-                            .oval(false)
-                            .build();
-
-
-                    Picasso.get().load(loggedInAccount.getImageURL()).transform(transformation).into(
-                            (profileIcon));
-                }
-
-            }catch (Exception e){
-                e.printStackTrace();
-                Log.d("ds",e.getMessage());
-            }
-
-
         } catch (SteemCommunicationException e) {
             e.printStackTrace();
         } catch (SteemResponseException e) {
             e.printStackTrace();
+        }
+        Log.d("ds","initSteemJClient");
+//            try {
+//                loggedInAccount = Tools.loginIfPossible(this);
+//                if (loggedInAccount!=null) {
+//                    initLoggedInUI();
+//                }
+//
+//            }catch (Exception e){
+//                e.printStackTrace();
+//                Log.d("ds",e.getMessage());
+//            }
+//
+//
+//        } catch (SteemCommunicationException e) {
+//            e.printStackTrace();
+//        } catch (SteemResponseException e) {
+//            e.printStackTrace();
+//        }
+    }
+
+    private void initLoggedInUI(){
+        if (loggedInAccount!=null) {
+            loginButton.setVisibility(View.GONE);
+            profileIcon.setVisibility(View.VISIBLE);
+
+            Transformation transformation = new RoundedTransformationBuilder()
+                    .cornerRadiusDp(30)
+                    .oval(false)
+                    .build();
+
+
+            Picasso.get().load(loggedInAccount.getImageURL()).transform(transformation).into(
+                    (profileIcon));
         }
     }
 
@@ -307,9 +441,9 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
             songTitleText.setText(MusicPlayer.getInstance().getCurrentSongPlaying().getTitle());
 
             if (MusicPlayer.getInstance().getCurrentSongPlaying().getAccountFavoritedSong())
-                playBar.findViewById(R.id.favButton).setBackgroundResource(R.drawable.ic_favorite);
+                ((ImageView)playBar.findViewById(R.id.favButton)).setImageResource(R.drawable.ic_favorite);
             else
-                playBar.findViewById(R.id.favButton).setBackgroundResource(R.drawable.ic_favorite_border);
+                ((ImageView)playBar.findViewById(R.id.favButton)).setImageResource(R.drawable.ic_favorite_border);
         }else {
             songTitleText.setVisibility(View.GONE);
         }
@@ -400,11 +534,11 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
             adapter.setActiveHolderPosition(randomSongIndex);
             break;
         case R.id.favButton:
-                if (MusicPlayer.getInstance().getCurrentSongPlaying()!=null && Tools.getAccountName(this)!=null) {
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
+                if (loggedInAccount!=null) {
+                    if (MusicPlayer.getInstance().getCurrentSongPlaying()!=null) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
@@ -412,36 +546,44 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
                                         findViewById(R.id.favoriteProgressBar).setVisibility(View.VISIBLE);
                                     }
                                 });
+
                                 Song s = MusicPlayer.getInstance().getCurrentSongPlaying();
+
+                                SteemConnectCallback callback = new SteemConnectCallback() {
+                                    @Override
+                                    public void onResponse(String s) {
+                                        Log.d("ds", s);
+                                        runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                findViewById(R.id.favButton).setVisibility(View.VISIBLE);
+                                                findViewById(R.id.favoriteProgressBar).setVisibility(View.GONE);
+                                                updateMusicBar();
+                                            }
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onError(SteemConnectException e) {
+                                        e.printStackTrace();
+                                    }
+                                };
+
                                 if (s.isAccountFavoritedSong()) {
-                                    steemJClient.cancelVote(s.getAuthor(), MusicPlayer.getInstance().getCurrentSongPlaying().getPermlink());
+                                    steemConnect.vote(loggedInAccount.getUserName(), s.getAuthor().getName(), s.getPermlink().getLink(), "0", callback);
+                                    //steemJClient.cancelVote(s.getAuthor(), MusicPlayer.getInstance().getCurrentSongPlaying().getPermlink());
                                     s.setAccountFavoritedSong(false);
-                                }else {
-                                    steemJClient.vote(s.getAuthor(), MusicPlayer.getInstance().getCurrentSongPlaying().getPermlink(), (short) 100);
+                                } else {
+                                    //steemJClient.vote(s.getAuthor(), MusicPlayer.getInstance().getCurrentSongPlaying().getPermlink(), (short) 100);
                                     s.setAccountFavoritedSong(true);
+                                    steemConnect.vote(loggedInAccount.getUserName(), s.getAuthor().getName(), s.getPermlink().getLink(), "10000", callback);
                                 }
 
-                            } catch (SteemCommunicationException e) {
-                                e.printStackTrace();
-                            } catch (SteemResponseException e) {
-                                e.printStackTrace();
-                            } catch (SteemInvalidTransactionException e) {
-                                e.printStackTrace();
                             }
-
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    findViewById(R.id.favButton).setVisibility(View.VISIBLE);
-                                    findViewById(R.id.favoriteProgressBar).setVisibility(View.GONE);
-                                    updateMusicBar();
-                                }
-                            });
-
-                        }
-                    }).start();
+                        }).start();
+                    }
                 }else {
-                    startActivityForResult(new Intent(MainActivity.this, LoginActivity.class), REQUEST_LOGIN_CODE);
+                    promptLogin();
                 }
 
                 break;

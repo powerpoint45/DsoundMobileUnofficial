@@ -32,6 +32,9 @@ class Encryption {
         this.c = c;
     }
 
+    public static String CYPHER_PASSWORD = "cypher_password";
+    public static String CYPHER_SC_TOKEN = "cypher_sc_token";
+
     /**
      * Creates a keypair for user that will hold a private key
      * @param alias keystore alias name
@@ -64,7 +67,7 @@ class Encryption {
     /**
      * @param data private key of user to encrypt
      */
-    void encryptString(String data) {
+    void encryptString(String data, String cypherName) {
         try {
             KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
             keyStore.load(null);
@@ -85,7 +88,7 @@ class Encryption {
 
             byte [] vals = outputStream.toByteArray();
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(c);
-            sharedPref.edit().putString("cypher", Base64.encodeToString(vals, Base64.DEFAULT)).apply();
+            sharedPref.edit().putString(cypherName, Base64.encodeToString(vals, Base64.DEFAULT)).apply();
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -95,7 +98,7 @@ class Encryption {
     /**
      * @return decrypted private key of user
      */
-    String decryptString() {
+    String decryptString(String cypherName) {
         try {
             KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
             keyStore.load(null);
@@ -105,7 +108,7 @@ class Encryption {
             output.init(Cipher.DECRYPT_MODE, privateKeyEntry.getPrivateKey());
 
             SharedPreferences sharedPref =PreferenceManager.getDefaultSharedPreferences(c);
-            String cipherText = sharedPref.getString("cypher",null);
+            String cipherText = sharedPref.getString(cypherName,null);
             CipherInputStream cipherInputStream = new CipherInputStream(
                     new ByteArrayInputStream(Base64.decode(cipherText, Base64.DEFAULT)), output);
             ArrayList<Byte> values = new ArrayList<>();
