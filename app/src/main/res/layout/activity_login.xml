@@ -109,12 +109,12 @@
                 android:layout_marginRight="8dp"
                 android:layout_marginBottom="50dp"
                 android:background="@drawable/login_button_background"
-                android:text="Login"
+                android:onClick="loginButtonPressed"
+                android:text="@string/sighn_in_sc"
                 android:textColor="@color/colorText"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                android:onClick="loginButtonPressed"/>
+                app:layout_constraintStart_toStartOf="parent" />
 
         </LinearLayout>
     </FrameLayout>

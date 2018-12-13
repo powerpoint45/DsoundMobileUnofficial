@@ -7,4 +7,5 @@
     <string name="new_s">New</string>
     <string name="hot">Hot</string>
     <string name="trending">Trending</string>
+    <string name="sighn_in_sc">Sign In Using SteemConnect</string>
 </resources>
