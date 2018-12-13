@@ -33,7 +33,9 @@ class Encryption {
     }
 
     public static String CYPHER_PASSWORD = "cypher_password";
-    public static String CYPHER_SC_TOKEN = "cypher_sc_token";
+    public static String CYPHER_SC_TOKEN_P1 = "cypher_sc_token1";
+    public static String CYPHER_SC_TOKEN_P2 = "cypher_sc_token2";
+    public static String CYPHER_SC_REFRESH_TOKEN = "cypher_sc_refresh_token";
 
     /**
      * Creates a keypair for user that will hold a private key

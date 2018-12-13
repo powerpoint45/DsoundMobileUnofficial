@@ -4,12 +4,23 @@ import android.content.Context;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
+import com.hapramp.steemconnect4j.SteemConnectCallback;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import eu.bittrade.libs.steemj.SteemJ;
 import eu.bittrade.libs.steemj.apis.database.models.state.Discussion;
@@ -23,6 +34,9 @@ class NetworkTools extends AppCompatActivity {
 
     private static String IPFS_URL = //"https://cloudflare-ipfs.com/ipfs/";
             "https://gateway.ipfs.io/ipfs/";
+
+    //My personal server built to deal with refresh tokens with steemConnect for this app
+    private static String SC_AUTH_URL = "https://dsoundmobile.herokuapp.com/auth";
 
     // each integer variable represents the user's song list sort preference:
     static final int TAG_TRENDING = 0;
@@ -120,9 +134,12 @@ class NetworkTools extends AppCompatActivity {
                     //Get all absolute required tags for song
                     //if any fail then don't add to list of songs
                     try {
-                        song.setImageURL(IPFS_URL + jObj.getJSONObject("audio").getJSONObject("files").getString("cover"));
-                        song.setSongURL(IPFS_URL + jObj.getJSONObject("audio").getJSONObject("files").getString("sound"));
-                        song.setDuration((int) jObj.getJSONObject("audio").getDouble("duration"));
+                        if (jObj.has("audio")) {
+                            song.setImageURL(IPFS_URL + jObj.getJSONObject("audio").getJSONObject("files").getString("cover"));
+                            song.setSongURL(IPFS_URL + jObj.getJSONObject("audio").getJSONObject("files").getString("sound"));
+                            song.setDuration((int) jObj.getJSONObject("audio").getDouble("duration"));
+                        }else
+                            failedAdding = true;
                     } catch (JSONException e) {
                         e.printStackTrace();
                         failedAdding = true;
@@ -149,9 +166,100 @@ class NetworkTools extends AppCompatActivity {
                     songs.add(song);
             }
         }
-
         return songs;
-
     }
+
+    static SteemConnectResult getAccessTokenFromCode(String code){
+        SteemConnectResult result = new SteemConnectResult();
+
+        JSONObject jsonObject = null;
+
+        try {
+            jsonObject = getServerData(SC_AUTH_URL+"?code="+code);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        if (jsonObject!=null) {
+            Log.d("ds", "JOBG:" + jsonObject.toString());
+
+            try {
+                if (jsonObject.has("access_token")) {
+                    result.setAccessToken(jsonObject.getString("access_token"));
+                }
+
+                if (jsonObject.has("refresh_token")) {
+                    result.setRefreshToken(jsonObject.getString("refresh_token"));
+                }
+
+                if (jsonObject.has("username")) {
+                    result.setUserName(jsonObject.getString("username"));
+                    Log.d("ds",result.getUserName());
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return result;
+    }
+
+    static SteemConnectResult getAccessTokenFromRefreshToken(String refreshToken){
+        SteemConnectResult result = new SteemConnectResult();
+
+        JSONObject jsonObject = null;
+
+        try {
+            jsonObject = getServerData(SC_AUTH_URL+"?refresh_token="+refreshToken);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        if (jsonObject!=null) {
+            Log.d("ds", "JOBG:" + jsonObject.toString());
+
+            try {
+                if (jsonObject.has("access_token")) {
+                    result.setAccessToken(jsonObject.getString("access_token"));
+                }
+
+                if (jsonObject.has("refresh_token")) {
+                    result.setRefreshToken(jsonObject.getString("refresh_token"));
+                }
+
+                if (jsonObject.has("username")) {
+                    result.setUserName(jsonObject.getString("username"));
+                    Log.d("ds",result.getUserName());
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return result;
+    }
+
+
+    static JSONObject getServerData(String urlWeb) throws IOException, JSONException {
+        // Connect to the URL using java's native library
+        URL url = new URL(urlWeb);
+        URLConnection request = url.openConnection();
+        request.connect();
+
+        BufferedReader rd = new BufferedReader(new InputStreamReader((InputStream) request.getContent()
+                , Charset.forName("UTF-8")));
+
+        StringBuilder sb = new StringBuilder();
+        int cp;
+        while ((cp = rd.read()) != -1) {
+            sb.append((char) cp);
+        }
+        return new JSONObject(sb.toString());
+    }
+
 
 }

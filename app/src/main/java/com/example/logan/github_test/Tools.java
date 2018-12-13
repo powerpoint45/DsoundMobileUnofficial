@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ResolveInfo;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -33,6 +34,20 @@ class Tools {
 
     /**
      * @param c Android context
+     * @return SteemConnect Access token
+     */
+    static String getUserAccessToken(Context c){
+        Encryption encryption = new Encryption(c);
+        String p1 = encryption.decryptString(Encryption.CYPHER_SC_TOKEN_P1);
+        String p2 = encryption.decryptString(Encryption.CYPHER_SC_TOKEN_P2);
+        if (p1!=null&&p2!=null)
+            return p1+p2;
+        return null;
+    }
+
+
+    /**
+     * @param c Android context
      * @return account name of user logged into app
      */
     static String getAccountName(Context c){
@@ -52,6 +67,39 @@ class Tools {
 
         Encryption encryption = new Encryption(c);
         encryption.encryptString(privateKey, cypher);
+    }
+
+    /**
+     * Saves refresh token and access token encrypted
+     * Saves username
+     * Will skip data that is null
+     * @param results from refresh token server
+     * @param c Android context
+     */
+    static void saveSCResults(SteemConnectResult results, Context c) {
+        Encryption encryption = new Encryption(c);
+
+        if (results.getRefreshToken()!=null) {
+            Log.d("ds","Saving CYPHER_SC_REFRESH_TOKEN");
+            encryption.encryptString(results.getRefreshToken(), Encryption.CYPHER_SC_REFRESH_TOKEN);
+        }
+
+        if (results.getAccessToken()!=null) {
+            Log.d("ds","Saving CYPHER_SC_TOKEN");
+            String token = results.getAccessToken();
+
+            final int mid = token.length() / 2; //get the middle of the String
+            String[] parts = {token.substring(0, mid),token.substring(mid)};
+
+            encryption.encryptString(parts[0], Encryption.CYPHER_SC_TOKEN_P1);
+            encryption.encryptString(parts[1], Encryption.CYPHER_SC_TOKEN_P2);
+        }
+
+        if (results.getUserName()!=null) {
+            Log.d("ds","Saving username");
+            SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(c);
+            sharedPref.edit().putString("username", results.getUserName()).apply();
+        }
     }
 
     /**
@@ -98,7 +146,9 @@ class Tools {
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(c);
         sharedPref.edit().remove("username")
                 .remove(Encryption.CYPHER_PASSWORD)
-                .remove(Encryption.CYPHER_SC_TOKEN).apply();
+                .remove(Encryption.CYPHER_SC_TOKEN_P1)
+                .remove(Encryption.CYPHER_SC_TOKEN_P2)
+                .remove(Encryption.CYPHER_SC_REFRESH_TOKEN).apply();
     }
 
 

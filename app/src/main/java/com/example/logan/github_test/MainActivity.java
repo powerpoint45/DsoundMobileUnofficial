@@ -198,11 +198,12 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
      * It allows for commenting and voting
      */
     private void initSteemConnect(){
-        final String accessToken = Tools.getUserPrivateKey(this, Encryption.CYPHER_SC_TOKEN);
+        final String accessToken = Tools.getUserAccessToken(this);
         if (accessToken!=null){
             loggedInAccount = new Account();
             loggedInAccount.setUserName(Tools.getAccountName(this));
             Log.d("ds",accessToken);
+            Log.d("ds",Tools.getUserPrivateKey(this, Encryption.CYPHER_SC_REFRESH_TOKEN));
             initLoggedInUI();
         }
 
@@ -212,11 +213,12 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
         options.setApp("dsoundmobile");
         options.setBaseUrl("https://steemconnect.com");
         options.setCallback("dsound://main/");
-        options.setScope(new String[]{"comment", "vote"});
+        options.setScope(new String[]{"comment", "vote", "offline"});
 
 
         // build the SteemConnect object.
         steemConnect = new SteemConnect(options);
+
 
         new Thread(new Runnable() {
             @Override
@@ -224,7 +226,6 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
                 steemConnect.me(steemConnectCallback);
             }
         }).start();
-
     }
 
 
@@ -234,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
     private void promptLogin(){
         String url = null;
         try {
-            url = steemConnect.getLoginUrl(false);
+            url = steemConnect.getLoginUrl(true);
         } catch (SteemConnectException e) {
             e.printStackTrace();
         }
@@ -262,11 +263,30 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
 
         if (intent.getDataString()!=null){
             Uri uri = Uri.parse(intent.getDataString());
-            if (uri.getQueryParameter("access_token")!=null) {
+            if (uri.getQueryParameter("access_token")!=null || uri.getQueryParameter("code")!=null) {
                 String username = uri.getQueryParameter("username");
                 String token = uri.getQueryParameter("access_token");
+                final String code = uri.getQueryParameter("code");
                 Log.d("ds","D:"+intent.getDataString());
-                Tools.saveUserCredentials(username, token, this, Encryption.CYPHER_SC_TOKEN);
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        SteemConnectResult result = NetworkTools.getAccessTokenFromCode(code);
+                        Tools.saveSCResults(result, MainActivity.this);
+
+                        loggedInAccount = new Account();
+                        loggedInAccount.setUserName(result.getUserName());
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                initLoggedInUI();
+                            }
+                        });
+                    }
+                }).start();
+                //Tools.saveUserCredentials(username, token, this, Encryption.CYPHER_SC_TOKEN);
             }
         }
     }
