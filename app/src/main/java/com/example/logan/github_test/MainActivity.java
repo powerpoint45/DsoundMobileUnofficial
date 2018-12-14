@@ -34,6 +34,7 @@ import com.squareup.picasso.Transformation;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Timer;
@@ -182,14 +183,38 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
         }
 
         @Override
-        public void onError(SteemConnectException e) {
+        public void onError(final SteemConnectException e) {
             e.printStackTrace();
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, "Something went wrong!", Toast.LENGTH_LONG).show();
+            if (e.error.equals("IOException")){
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Connection Error: "+e.error, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }else {
+                //Update Access Token With refresh token
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "SteemConnect Error: " + e.error, Toast.LENGTH_LONG).show();
+                    }
+                });
+
+                String refreshToken = Tools.getUserPrivateKey(MainActivity.this, Encryption.CYPHER_SC_REFRESH_TOKEN);
+                if (refreshToken != null) {
+                    SteemConnectResult result = NetworkTools.getAccessTokenFromRefreshToken(refreshToken);
+                    Tools.saveSCResults(result, MainActivity.this);
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            initSteemConnect();
+                        }
+                    });
                 }
-            });
+            }
         }
     };
 
@@ -202,8 +227,6 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
         if (accessToken!=null){
             loggedInAccount = new Account();
             loggedInAccount.setUserName(Tools.getAccountName(this));
-            Log.d("ds",accessToken);
-            Log.d("ds",Tools.getUserPrivateKey(this, Encryption.CYPHER_SC_REFRESH_TOKEN));
             initLoggedInUI();
         }
 
@@ -220,12 +243,14 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
         steemConnect = new SteemConnect(options);
 
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                steemConnect.me(steemConnectCallback);
-            }
-        }).start();
+        if (loggedInAccount!=null) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    steemConnect.me(steemConnectCallback);
+                }
+            }).start();
+        }
     }
 
 
