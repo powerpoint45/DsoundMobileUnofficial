@@ -1,7 +1,5 @@
 package com.example.logan.github_test;
 
-import android.content.Context;
-import android.net.Network;
 import android.support.test.rule.ActivityTestRule;
 
 import org.junit.After;
@@ -12,10 +10,9 @@ import org.junit.Test;
 import java.util.ArrayList;
 
 import eu.bittrade.libs.steemj.SteemJ;
-import eu.bittrade.libs.steemj.exceptions.SteemCommunicationException;
-import eu.bittrade.libs.steemj.exceptions.SteemResponseException;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 public class NetworkToolsTest {
 

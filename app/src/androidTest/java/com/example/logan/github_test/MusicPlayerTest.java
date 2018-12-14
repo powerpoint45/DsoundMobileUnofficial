@@ -12,7 +12,7 @@ import java.util.ArrayList;
 
 import eu.bittrade.libs.steemj.SteemJ;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
 
 public class MusicPlayerTest {
 

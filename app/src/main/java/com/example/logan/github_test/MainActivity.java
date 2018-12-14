@@ -34,7 +34,6 @@ import com.squareup.picasso.Transformation;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Timer;
@@ -289,8 +288,6 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
         if (intent.getDataString()!=null){
             Uri uri = Uri.parse(intent.getDataString());
             if (uri.getQueryParameter("access_token")!=null || uri.getQueryParameter("code")!=null) {
-                String username = uri.getQueryParameter("username");
-                String token = uri.getQueryParameter("access_token");
                 final String code = uri.getQueryParameter("code");
                 Log.d("ds","D:"+intent.getDataString());
 
@@ -311,7 +308,6 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
                         });
                     }
                 }).start();
-                //Tools.saveUserCredentials(username, token, this, Encryption.CYPHER_SC_TOKEN);
             }
         }
     }
@@ -685,6 +681,9 @@ public class MainActivity extends AppCompatActivity implements PopupMenu.OnMenuI
         }
     }
 
+    /**
+     * finish and restart activity
+     */
     private void restartActivity() {
         finish();
         startActivity(new Intent(MainActivity.this, MainActivity.class));

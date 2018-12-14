@@ -4,8 +4,6 @@ import android.content.Context;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
-import com.hapramp.steemconnect4j.SteemConnectCallback;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -14,13 +12,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import eu.bittrade.libs.steemj.SteemJ;
 import eu.bittrade.libs.steemj.apis.database.models.state.Discussion;
@@ -30,7 +26,7 @@ import eu.bittrade.libs.steemj.enums.DiscussionSortType;
 import eu.bittrade.libs.steemj.exceptions.SteemCommunicationException;
 import eu.bittrade.libs.steemj.exceptions.SteemResponseException;
 
-class NetworkTools extends AppCompatActivity {
+class NetworkTools {
 
     private static String IPFS_URL = //"https://cloudflare-ipfs.com/ipfs/";
             "https://gateway.ipfs.io/ipfs/";
@@ -244,7 +240,7 @@ class NetworkTools extends AppCompatActivity {
     }
 
 
-    static JSONObject getServerData(String urlWeb) throws IOException, JSONException {
+    private static JSONObject getServerData(String urlWeb) throws IOException, JSONException {
         // Connect to the URL using java's native library
         URL url = new URL(urlWeb);
         URLConnection request = url.openConnection();
